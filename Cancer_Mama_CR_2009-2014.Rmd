@@ -1,0 +1,580 @@
+---
+title: "Análisis exploratorio de la incidencia de cáncer en población femenina costarricense para el periodo 2009-2014"
+author: "Pablo Mora"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+```{r setup, include=FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+El cáncer es un conjunto de enfermedades con alta prevalencia en la población y constituye una de las principales causas de muerte en Costa Rica y a nivel mundial. Es de especial relevancia en poblaciones envejecidas o en proceso de envejecimiento debido a que el riesgo de padecer cáncer aumenta con la edad. Asimismo, suele afectar con mayor severidad a países en vía de desarrollo y sectores socioeconómicamente desfavorecidos, ya que estos no suelen contar con recursos para acceder a un diagnostico oportuno y un tratamiento adecuado. Debido a lo anterior, es de especial importancia vigilar y comprender el comportamiento epidemiológico del cáncer en Costa Rica y en sus diferentes unidades territoriales. Para esto, se analizó datos de incidencia de cáncer en Costa Rica para población femenina entre el periodo del 2009-2014, estos datos incluyen información de incidencia por tipo de cáncer, edad, cantón y provincia.\
+Se decidió trabajar en población femenina con el fin de acotar el análisis, sin embargo, el mismo procedimiento y código se puede usar para analizar a la población masculina. De igual forma, a futuro se recomienda realizar un análisis similar para mortalidad y sobrevida.
+
+**Objetivo General:** *Caracterizar la situación epidemiología del cáncer en población femenina costarricense para el periodo comprendido entre el 2009 -- 2014.*\
+**Objetivos Específicos:**\
+*(1) Determinar posibles tendencias en la incidencia de los principales tipos de cáncer durante el periodo de estudio.* \
+*(2) Evaluar el efecto de la edad sobre la incidencia.* \
+*(3) Resumir los datos de incidencia de manera tal que sean fácilmente interpretables.*\
+*(4) Caracterizar la incidencia para las diferentes provincias y cantones.* \
+*(5) Agrupar los tipos de cáncer según la incidencia por edad.* \
+*(6) Agrupar los cantones según la incidencia de los canceres más frecuentes.*
+
+**Recolección de datos:**\
+*Los datos corresponden a datos públicos del Ministerio de Salud. Los mismos son tomados del Registro Nacional de Tumores (RNT). El RNT fue creado mediante decreto ejecutivo en 1976 y desde entonces almacena la información de incidencia y prevalencia del cáncer en Costa Rica. La notificación de cualquier tipo de cáncer por parte del personal medico es obligatoria desde la creación del RNT, mientras desde 1980 es obligatoria la notificación por parte de cualquier laboratorio de patología. Para el 2012, el 88,08 % de los diagnósticos correspondían a histología, mientras que el resto corresponden a cirugía, investigación clínica y diagnostico únicamente clínico.*
+
+# Lectura de datos
+
+Creamos una función que facilita la lectura de los datos y el cambio de los nombres de las columnas.
+
+```{r}
+leer_incidencia <- function(direccion, year){
+  datos <- read.table(direccion, header = TRUE, sep = "\t", quote = "\"", 
+                      dec = ",", fill = TRUE)
+  colnames(datos)[1:20] <- c("id", "localizacion", "n_total", "incidencia_total",
+                             "0-5", "5-10", "10-15", "15-20", "20-25", "25-30", 
+                             "30-35", "35-40", "40-45", "45-50", "50-55", "55-60",
+                             "60-65", "65-70", "70-75", "75+")
+  datos[1,1] <- "0"
+  datos$year <- year
+  
+  return(datos)
+}
+```
+
+Lectura de los datos que abarcan el periodo entre el 2009 y 2014.
+
+```{r}
+mujeres2009 <- leer_incidencia("2009_mujeres_incidencia.txt", 2009)
+mujeres2010 <- leer_incidencia("2010_mujeres_incidencia.txt", 2010)
+mujeres2011 <- leer_incidencia("2011_mujeres_incidencia.txt", 2011)
+mujeres2012 <- leer_incidencia("2012_mujeres_incidencia.txt", 2012)
+mujeres2013 <- leer_incidencia("2013_mujeres_incidencia.txt", 2013)
+mujeres2014 <- leer_incidencia("2014_mujeres_incidencia.txt", 2014)
+
+#Unimos todos los data frame en un uno solo.
+mujeresIncidencia <- rbind(mujeres2009, mujeres2010, mujeres2011,
+                           mujeres2012, mujeres2013, mujeres2014)
+```
+
+Generamos una tabla interactiva con filtros.
+
+```{r}
+library(DT)
+datatable(mujeresIncidencia, class = 'cell-border stripe', options = list(pageLength = 5),  
+filter = list(position = 'bottom', clear = TRUE ))
+```
+
+# Incidencia de cáncer en mujeres costarricenses para el 2009 - 2014
+
+Convertimos a filas los valores de incidencia que estaban agrupados en distintas columnas según el rango de edad. Este formato "alargado" favorece la graficación.
+
+```{r warning=FALSE}
+library(tidyr)
+datosLargo <- pivot_longer(mujeresIncidencia, cols=5:20, names_to = "Edad", values_to = "Incidencia")
+tail(datosLargo)
+```
+
+## Gráfico de canceres con mayor frecuencia
+
+Seleccionamos los canceres más frecuentes para el año 2009 y 2014.
+
+```{r}
+#Data frame que solo contiene los datos del 2009
+largo2009 <- datosLargo[datosLargo$year==2009,]
+#Eliminamos los datos que corresponden a la suma total de todos los canceres 
+orden2009 <- largo2009[(largo2009$localizacion != "TOTAL"),]
+#Ordenamos en orden decreciente los datos según la incidencia total 
+orden2009 <- orden2009[order(orden2009$incidencia_total, decreasing = TRUE),]
+#Seleccionamos los 10 canceres más frecuentes para el 2009
+index2009 <- unique(orden2009$localizacion)[1:10]
+
+#Realizamos el mismo procedimiento para el 2014
+largo2014 <- datosLargo[datosLargo$year==2014,]
+orden2014 <- largo2014[(largo2014$localizacion != "TOTAL"),]
+orden2014 <- orden2014[order(orden2014$incidencia_total, decreasing = TRUE),]
+index2014 <- unique(orden2014$localizacion)[1:10]
+
+#Concatenamos los canceres y usamos unique() para no tener valores repetidos 
+#De esta forma tenemos en el objeto "frecuentes" los canceres más frecuentes del
+#2009 y 2014
+frecuentes <- unique(c(index2009, index2014))
+frecuentes
+```
+
+```{r warning =FALSE}
+library(ggplot2)
+library(plotly)
+incidenciaFrecuentes <- datosLargo[datosLargo$localizacion %in% frecuentes,]
+incidenciaFrecuentes$localizacion <- as.factor(incidenciaFrecuentes$localizacion)
+#Cambiamos el nombre por minúscula y nombres más cortos 
+levels(incidenciaFrecuentes$localizacion) <- c("Bronquios y pulmón",
+                                               "Colon", "Cuello uterino", 
+                                               "Cuerpo Uterino", "Estomago", 
+                                               "Ganglios linfáticos", 
+                                               "glándula tiroides", "Mama",
+                                               "Ovario", "Piel", "Hematopoyético y reticuloendotelial",
+                                               "Sitio primario desconocido")
+p1 <- incidenciaFrecuentes |> ggplot(aes(x = year, y = incidencia_total, colour = localizacion)) +
+       geom_line() + geom_point(size = 2) + theme_classic()
+p1 <- p1 + labs(y = "Incidencia cada 100.000 habitantes",
+                x = "Año", 
+                colour = "Localización")
+#Usamos la librería ggploty para generar un gráfico interactivo. 
+ggplotly(p1)
+```
+
+## Tabla de canceres más frecuentes según el año.
+
+Transformamos los datos a una formato "a lo ancho" que favorece la visualización de los cambios en la incidencia según el año.
+
+```{r}
+#Eliminamos columna de edad e incidencia por edad. 
+datosAncho <- unique(datosLargo[, - c(6,7)])
+datosAncho <- pivot_wider(datosAncho,id_cols=localizacion, names_from = year, values_from = incidencia_total)
+#Ordenamos los datos en forma descendente  según la incidencia del 2014
+datosAncho <- datosAncho[order(datosAncho$`2014`, decreasing = TRUE),]
+
+library(DT)
+datatable(datosAncho, class = 'cell-border stripe', options = list(pageLength = 5))
+```
+
+# Incidencia según el rango de edad para los años 2009 y 2014.
+
+```{r}
+#Barplot
+totalEdad <- datosLargo[datosLargo$localizacion == "TOTAL",]
+#Convertimos edad a factor 
+totalEdad$Edad <- as.factor(totalEdad$Edad)
+#Cambiamos el orden de los factores 
+totalEdad$Edad <- factor(totalEdad$Edad ,levels(totalEdad$Edad)[c(1, 10, 2:9, 11:16)])
+```
+
+Vamos a crear un gráfico de barras usando únicamente los datos de los años 2009 y 2014. Esto con el fin de observar posibles cambios de tendencia para el periodo analizado.
+
+```{r}
+#Barplot
+totalEdad <- datosLargo[datosLargo$localizacion == "TOTAL",]
+#Convertimos edad a factor 
+totalEdad$Edad <- as.factor(totalEdad$Edad)
+#Cambiamos el orden de los factores 
+totalEdad$Edad <- factor(totalEdad$Edad ,levels(totalEdad$Edad)[c(1, 10, 2:9, 11:16)])
+
+#Seleccionamos los datos del 2009 y 2014
+totalEdad_09_14 <- totalEdad[totalEdad$year == 2009 | 
+                               totalEdad$year == 2014,]
+
+#Seleccionamos los datos del 2009 y 2014
+totalEdad_09_14 <- totalEdad[totalEdad$year == 2009 | 
+                               totalEdad$year == 2014,]
+#Transformanos la variable año a factor
+totalEdad_09_14$year <- as.factor(totalEdad_09_14$year)
+
+#Graficación
+ggplot(totalEdad_09_14, aes(x = Edad, y = Incidencia, fill = year)) + 
+  geom_bar(stat="identity", color = "black",
+           position = "dodge", width = 0.8) +
+  labs(y = "Incidencia cada 100.000 habitantes",
+         x = "Rango de edad", 
+         fill = "Año") + theme_classic()
+
+```
+
+# Incidencia según el rango de edad para los canceres más frecuentes
+
+Vamos a generar un heatmap con los 20 canceres más frecuentes para el año 2014
+
+```{r}
+#Ordenamos de forma decresciente según la incidencia total
+matrizIncidencia <- mujeresIncidencia[order(mujeresIncidencia$incidencia_total, decreasing = TRUE), ]
+
+#Seleccionamos los datos que pertenecen al 2014 y que no son un total.
+#Eliminamos las columnas id, localización n_total, incidencia_total y year. 
+matrizIncidencia <- matrizIncidencia[matrizIncidencia$year == 2014 &
+                                     matrizIncidencia$localizacion != "TOTAL",
+                                     c(-1, -3, -4, -21)]
+
+incidenciaCluster <- matrizIncidencia #Lo guardamos para más adelante
+
+#Le asignamos nombre a las filas
+rownames(matrizIncidencia) <- matrizIncidencia$localizacion
+
+#Eliminamos columna localización
+matrizIncidencia <- matrizIncidencia[, -1]
+
+datosClusterIncidencia <- matrizIncidencia #Lo guardamos para el k-means
+#Transformamos el dataframe a matriz
+matrizIncidencia <- as.matrix(matrizIncidencia)
+
+#Generamos el gráfico 
+heatmap(matrizIncidencia[1:20,], xlab="Rango de edad")
+
+
+```
+
+# Cambio en la incidencia entre los años 2009 y 2014
+
+```{r}
+
+#Seleccionamos los datos del 2009 y eliminamos columnas de edad e incidencia por edad. 
+#Eliminamos los datos de localización que corresponden al total.
+#Eliminamos las filas repetidas 
+df2009 <- unique(datosLargo[datosLargo$year == 2009 &
+                datosLargo$localizacion != "TOTAL",
+                - c(6,7)])
+#Realizamos lo mismo para el 2014
+df2014 <- unique(datosLargo[datosLargo$year == 2014 &
+                              datosLargo$localizacion != "TOTAL",
+                            - c(6,7)])
+head(df2014)
+```
+
+Debemos verificar que los set de datos del 2014 y 2015 tengan el mismo formato, esto nos asegura que podemos realizar operar entre ellos.
+
+```{r}
+#Verificamos que el orden de la variable localización sea la misma para el 2009 y 2014
+#Primero debemos eliminar la fila 35 que solo está en 2014 y no en 2009
+df2014[35,]
+df2014 <- df2014[-35,]
+#Verificamos que ambos vectores de localización sean iguales
+#El false en posición 55 se debe a una diferencia en una ñ (RIÑON != RI?ON),
+df2009$localizacion == df2014$localizacion
+```
+
+Calculamos el cambio porcentual entre el 2009 y 2014, para esto usamos la formula:\
+*Δ% = ( ( valor final -- valor inicial ) / valor inicial ) x 100*
+
+```{r}
+#Cambio porcentual
+cambio = ((df2014$incidencia_total - df2009$incidencia_total)/df2009$incidencia_total)*100
+
+#Cambio en la cantidad
+cambioCantidad = df2014$n_total - df2009$n_total
+
+#Generamos un dataframe 
+dfCambios <- data.frame(localizacion = df2009$localizacion,
+                        Cambio_porcentual = cambio,
+                        Cambio_cantidad = cambioCantidad)
+
+#Ordenamos de forma descendiente según el cambio en la cantidad entre 2009 y 2014
+dfCambios <- dfCambios[order(dfCambios$Cambio_cantidad, decreasing = TRUE),]
+
+#Generamos la tabla con los datos
+datatable(dfCambios, class = 'cell-border stripe', options = list(pageLength = 5))
+```
+
+# Agrupamiento de los tipos de cáncer según la incidencia por edad
+
+Vamos a emplear el algoritmo de k-means para agrupar los canceres en distintos "clusters". Primero veamos los datos que tenemos hasta el momento.
+
+```{r}
+head(datosClusterIncidencia)
+```
+
+Se debe escalar los datos para tener un centroide en 0.
+
+```{r warning=FALSE}
+datosClusterIncidencia <- scale(datosClusterIncidencia)
+```
+
+Primero debemos calcular el número de clusters, vamos a usar tres índices distintos.
+
+```{r warning=FALSE}
+library(factoextra)
+fviz_nbclust(datosClusterIncidencia, kmeans, method = "wss")
+fviz_nbclust(datosClusterIncidencia, kmeans, method = "silhouette")
+fviz_nbclust(datosClusterIncidencia, kmeans, method = "gap_stat")
+```
+
+Como no obtuvimos un resultado definitivo, vamos a usar la librería NbClust para calcular 30 índices distintos y decidir con base en el resultado de la mayoría.
+
+```{r warning=FALSE}
+library(NbClust)
+resnumclust<-NbClust(datosClusterIncidencia, distance = "euclidean", min.nc=2, max.nc=10, method = "kmeans", index = "alllong")
+fviz_nbclust(resnumclust)
+```
+
+Con base en lo anterior, debemos usar 2 clusters.
+
+## K-Means (k = 2)
+
+```{r warning=FALSE}
+k2 <- kmeans(datosClusterIncidencia, centers = 2, nstart = 50)
+k2
+```
+
+Procedemos a graficar el resultado.
+
+```{r warning=FALSE}
+fviz_cluster(k2, data = datosClusterIncidencia, ellipse.type = "euclid",repel = TRUE,star.plot = TRUE)
+```
+
+## K-Means (k = 5)
+
+```{r warning=FALSE, message=FALSE}
+k5 <- kmeans(datosClusterIncidencia, centers = 5, nstart = 50)
+k5
+fviz_cluster(k5, data = datosClusterIncidencia, ellipse.type = "euclid",repel = TRUE,star.plot = TRUE)
+```
+
+Vamos a realizar una tabla que contenga el grupo en el que fue clasificado el cáncer según k = 2 y k = 5.
+
+```{r}
+incidenciaCluster$k2 <- as.factor(k2$cluster)
+incidenciaCluster$k5 <- as.factor(k5$cluster)
+datatable(incidenciaCluster, class = 'cell-border stripe', options = list(pageLength = 5))
+
+```
+
+# Incidencia por Cantón y Provincia
+
+```{r}
+#Lectura de los datos
+cantonesIncidencia <- read.table("2014_mujeres_incidencia_canton.txt", header = TRUE, sep = "\t", quote = "\"", 
+                    dec = ",", fill = TRUE)
+
+head(cantonesIncidencia)
+```
+
+Podemos observar el nombre de los canceres más frecuentes de la siguiente forma.
+
+```{r}
+colnames(cantonesIncidencia[5:15])
+```
+
+```{r include = FALSE}
+#LA unica forma de solucionar el bug
+datatable(iris,  options = list(pageLength = 5))
+```
+
+Vamos a crear una table interactiva que resuma los datos.
+
+```{r }
+datatable(cantonesIncidencia,  options = list(pageLength = 5)) #bug
+datatable(cantonesIncidencia,  options = list(pageLength = 5))
+```
+
+Vamos a graficar la incidencia según la provincia.
+
+```{r}
+#Guardamos los nombres de las provincias en un vector 
+provincias <- c("SAN JOSE", "ALAJUELA", "HEREDIA", "CARTAGO", "GUANACASTE", 
+                "PUNTARENAS", "LIMON")
+#Selecionamos los datos de las provincias 
+incidenciaProvincia <- cantonesIncidencia[
+                       cantonesIncidencia$PROVINCIA.Y.CANTON %in% provincias,]
+#Gráfico de barras
+ggplot(incidenciaProvincia, aes(x = reorder(PROVINCIA.Y.CANTON, -TASA_TOTAL) , y = TASA_TOTAL, fill = "")) + 
+  geom_bar(stat="identity", color = "black",
+           position = "dodge", width = 0.8) +
+  labs(y = "Incidencia cada 100.000 habitantes",
+       x = "Provincia", 
+       fill = "Año") + theme_classic() + theme(legend.position = "none")
+```
+
+Vamos a generar un heatmap de incidencia según el tipo de cáncer y cantón
+
+```{r warning=FALSE}
+#Eliminamos las provincias del set de datos 
+cantonesIncidencia <- cantonesIncidencia[
+                     !(cantonesIncidencia$PROVINCIA.Y.CANTON %in% provincias),]
+
+#Cambiamos nombres de "Central" al nombre del cantón
+cantonesIncidencia$PROVINCIA.Y.CANTON[2] = "SAN JOSE"
+cantonesIncidencia$PROVINCIA.Y.CANTON[23] = "ALAJUELA"
+cantonesIncidencia$PROVINCIA.Y.CANTON[39] = "CARTAGO"
+cantonesIncidencia$PROVINCIA.Y.CANTON[48] = "HEREDIA"
+cantonesIncidencia$PROVINCIA.Y.CANTON[71] = "PUNTARENAS"
+cantonesIncidencia$PROVINCIA.Y.CANTON[83] = "LIMON"
+
+#Transformamos los datos "a lo largo"
+cantonLargo <- pivot_longer(cantonesIncidencia, cols=5:15, names_to = "Localizacion", values_to = "Incidencia")
+
+#Heatmap
+p2 <- ggplot(cantonLargo, aes(x= reorder(PROVINCIA.Y.CANTON, -TASA_TOTAL) , 
+                          y= reorder(Localizacion, -Incidencia), fill= Incidencia)) + 
+    geom_tile() + theme(axis.text.x = element_text(angle = 45, hjust = 1, size ="3"),
+                        axis.text.y = element_text(size = "8")) +
+      paletteer::scale_fill_paletteer_c("viridis::plasma") +
+  labs(y = "Localización",
+       x = "Cantón") 
+
+#ggplotly(p2)
+p2
+```
+
+# Agrupamiento por cantones
+
+Primero debemos manipular los datos.
+
+```{r}
+#Clustering 
+#Eliminamos la fila de "Costa Rica"
+cantonesCluster<- cantonesIncidencia[-1,]
+
+#Eliminamos los cantones "Desconocido
+cantonesCluster <- cantonesCluster[!(cantonesCluster$PROVINCIA.Y.CANTON == "DESCONOCIDO"), ]
+
+#Guardamos esta variable para más tarde
+tablaCluster <- cantonesCluster
+
+rownames(cantonesCluster) <- cantonesCluster$PROVINCIA.Y.CANTON
+
+#Eliminamos columnas de PROVINCIA.Y.CANTON, PROVINCIA y N_TOTAL
+cantonesCluster <- cantonesCluster[, -c(1:3)]
+head(cantonesCluster)
+```
+
+Debemos determinar la cantidad de clusters.
+
+```{r}
+#Escalamos los datos
+cantonesCluster <- scale(cantonesCluster)
+
+#Realizamos el k-means 
+#número de clusters, vamos a usar tres índices distintos.
+library(factoextra)
+fviz_nbclust(cantonesCluster, kmeans, method = "wss")
+fviz_nbclust(cantonesCluster, kmeans, method = "silhouette")
+fviz_nbclust(cantonesCluster, kmeans, method = "gap_stat")
+```
+
+Debido a que los resultados anteriores no son concluyentes, usamos la regla de la mayoría.
+
+```{r}
+resnumclust<-NbClust(cantonesCluster, distance = "euclidean", min.nc=2, max.nc=10, method = "kmeans", index = "alllong")
+fviz_nbclust(resnumclust)
+
+```
+
+## K-Means (k = 2)
+
+```{r warning=FALSE}
+k_2 <- kmeans(cantonesCluster, centers = 2, nstart = 50)
+k_2
+
+fviz_cluster(k_2, data = cantonesCluster, ellipse.type = "euclid",repel = TRUE,star.plot = TRUE)
+
+tablaCluster$k_2 <- as.factor(k_2$cluster)
+clado2 <- hcut(cantonesCluster, k = 2, stand = TRUE)
+fviz_dend(clado2, rect = TRUE, cex = 0.4,
+          k_colors = c("red","#2E9FDF"))
+```
+
+## K-Means (k = 7)
+
+```{r warning=FALSE}
+k_7 <- kmeans(cantonesCluster, centers = 7, nstart = 50)
+k_7
+
+fviz_cluster(k_7, data = cantonesCluster, ellipse.type = "euclid",repel = TRUE,star.plot = TRUE)
+
+clado7 <- hcut(cantonesCluster, k = 7, stand = TRUE)
+fviz_dend(clado7, rect = TRUE, cex = 0.4)
+
+```
+
+Vamos a realizar una tabla que contenga el grupo en el que fue clasificado el cantón según k = 2 y k = 7.
+
+```{r}
+tablaCluster$k_7 <- as.factor(k_7$cluster)
+tablaCluster$k_2 <- as.factor(k_2$cluster)
+datatable(tablaCluster, class = 'cell-border stripe', options = list(pageLength = 5)) 
+```
+
+# Correlaciones en casos de interés de edad vs. incidencia
+
+Primero se deben manipular los datos.
+
+```{r}
+datosCorrelacion <- datosLargo
+#Transformamos datos de rango de edad a númerico
+datosCorrelacion$Edad <- gsub(".*-","",datosCorrelacion$Edad)
+
+#Cambiamos string "75+" por 80
+datosCorrelacion$Edad[which(datosCorrelacion$Edad == "75+")] = 80
+datosCorrelacion$Edad <- as.numeric(datosCorrelacion$Edad)
+head(datosCorrelacion)
+```
+
+### Tiroides
+
+```{r}
+#Seleccionamos los datos 
+tiroides <- datosCorrelacion[datosCorrelacion$localizacion == "GLANDULA TIROIDES",]
+#Valor de correlación
+cor(tiroides$Incidencia, tiroides$Edad, method = c("pearson", "kendall", "spearman"))
+
+#Hay una correlación significativa 
+cor.test(tiroides$Incidencia, tiroides$Edad, 
+         method = "pearson")
+```
+
+### Mama
+
+```{r}
+#Seleccionamos los datos 
+MAMA <- datosCorrelacion[datosCorrelacion$localizacion == "MAMA",]
+#Valor de correlación
+cor(MAMA$Incidencia, MAMA$Edad, method = c("pearson", "kendall", "spearman"))
+
+#Hay una correlación significativa 
+cor.test(MAMA$Incidencia, MAMA$Edad, 
+         method = "pearson")
+```
+
+### Piel
+
+```{r}
+#Seleccionamos los datos 
+piel <- datosCorrelacion[datosCorrelacion$localizacion == "PIEL",]
+#Valor de correlación
+cor(piel$Incidencia, piel$Edad, method = c("pearson", "kendall", "spearman"))
+
+#Hay una correlación significativa 
+cor.test(piel$Incidencia, piel$Edad, 
+         method = "pearson")
+```
+
+### Cuello uterino
+
+```{r}
+#Seleccionamos los datos 
+uterino <- datosCorrelacion[datosCorrelacion$localizacion == "CUELLO UTERINO",]
+#Valor de correlación
+cor(uterino$Incidencia, uterino$Edad, method = c("pearson", "kendall", "spearman"))
+
+#Hay una correlación significativa 
+cor.test(uterino$Incidencia, uterino$Edad, 
+         method = "pearson")
+```
+
+# Gráfico de edad vs. incidencia para los casos de interes en el 2014
+
+```{r}
+cInteres <- rbind(tiroides, MAMA, piel, uterino)
+cInteres2014 <- cInteres[cInteres$year == 2014, ]
+
+p3 <- cInteres2014 |> ggplot(aes(x = Edad, y = Incidencia, colour = localizacion)) +
+       geom_line() + geom_point(size = 2) +
+  labs(y = "Incidencia cada 100.000 habitantes", x = "Edad", colour = "Localización") + theme_classic()
+
+p3
+```
+
+Vemos que cuello uterino & glándula tiroides y mama & piel habian sido clasificados por el K-means (k=5) como grupos diferentes, este gráfico nos confirma que se comportan de forma similar.
+
+# Conclusiones
+
+-   Para los canceres más frecuentes, desde el 2009 y hasta el 2009, se ha visto una tendencia al alza de los canceres de tiroides y mama.
+-   Lo anterior se puede deber, al menos en parte, al envejecimiento de la población. Ambos tipos de cáncer se correlación fuertemente con la edad.
+-   Para el año 2014, la incidencia en mujeres entre los 40 a 65 años ha aumentado en comparación del 2009.
+-   Es evidente que la incidencia total aumenta según la edad, a partir de los 40 años se superan los 200 casos por cada 100.000 habitantes, y para los 70 se superan los 1000 por cada 100.000 habitantes.
+-   Para el caso de agrupamiento de los tipos de cáncer según la incidencia por edad, para k = 2, el grupo 1 corresponde a canceres de alta incidencia. Para k = 5, las leucemias fueron agrupadas en grupo por aparte, mientras que los grupos de cuello uterino y tiroides, así como piel y mama fueron agrupados juntos porque la incidencia varia de forma similar con la edad y son de alta incidencia a partir de los 35 años.
+-   Hay una importante variación para la incidencia entre provincias y entre cantones. Esto se podría deber a factores que estén aumentando la incidencia ciertas regiones (como edad o factores ambientales), pero también se podría deber a un mejor diagnóstico.
+-   Para el caso de agrupamiento de los cantones según la incidencia de los canceres más frecuentes, para k = 2, el grupo 1 corresponde a cantones con alta incidencia.
+-   Para un análisis más detallado de los cluster y demás resultados, es necesario un análisis profundo de la bibliografía. También se recomienda incorporar modelos con factores socioeconómicos y otros índices como ruralidad, cantidad de EBAIS por habitante y cantidad de consultas externas.

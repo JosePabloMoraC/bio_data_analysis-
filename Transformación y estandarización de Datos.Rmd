@@ -1,0 +1,178 @@
+---
+title: "Transformación y estandarización de Datos"
+date: "`r Sys.Date()`"
+author: "Pablo Mora"
+output:
+  rmdformats::downcute:
+    self_contained: true
+    default_style: "light"
+    downcute_theme: "default"
+---
+# Determinación y visualización de NAs
+
+## Cargar datos
+```{r warning=FALSE}
+data("airquality")
+str(airquality)
+```
+
+
+## Cantidad de NAs por variable   
+```{r warning=FALSE, message=FALSE}
+library(dplyr)
+valoresNA <- airquality %>% 
+             summarise(
+                across(.cols = everything(), 
+                .fns = ~sum(is.na(.), na.rm = FALSE)))
+valoresNA
+```
+
+### Graficación frecuencia de NAs por variable   
+Se puede observar que solo las variables Ozone y Solar.R tienen NAs  
+```{r warning=FALSE}
+library(ggplot2)
+library(tidyr)
+
+valoresNA %>% 
+  pivot_longer(everything(),
+                           names_to ="Variable",
+                           values_to ="Frecuencia") %>% 
+  ggplot(aes(x = Variable, y = Frecuencia), colour = Variable) + 
+  geom_col() +
+  labs(y = "Frecuencia de NAs") + 
+  scale_y_continuous(breaks = seq(0, 40, 5)) +
+  theme_classic()
+```
+
+# Imputación 
+## Imputación simple
+Para determinar que método de imputación simple se puede usar, primero se usaron boxplots para ver la distribución de los datos. 
+```{r warning = FALSE}
+library(patchwork)
+#Gráfico de barras para Ozone
+graph1 <- airquality %>% 
+  drop_na(Ozone) %>% 
+  ggplot(aes(x="", y=Ozone)) +
+  stat_boxplot(geom = "errorbar",
+               width = 0.2) +
+  geom_boxplot(fill="red", alpha = 0.3) +
+  geom_jitter() + 
+  labs(x = "") +
+  ggtitle("Concentración ozono") + 
+  theme_classic()
+
+#Gráfico de barras para Solar.R
+graph2 <- airquality %>% 
+  drop_na(Solar.R) %>% 
+  ggplot(aes(x="", y=Solar.R)) +
+  stat_boxplot(geom = "errorbar",
+               width = 0.2) +
+  geom_boxplot(fill="red", alpha = 0.3) +
+  geom_jitter() + 
+  labs(x = "") +
+  ggtitle("Radiación solar") +
+  theme_classic()
+
+graph1+graph2
+```
+La variable Ozone tiene unos pocos outliers, por lo que para el ozono vamos a usar la mediana para la imputación. 
+
+### Imputación con Hmisc para Ozone
+```{r warning=FALSE, message=FALSE}
+library(Hmisc)
+
+airquality.mis = airquality
+airquality.mis$Ozone <- impute(airquality$Ozone, median) #Se usó la mediana 
+airquality.mis$Ozone
+```
+
+### Imputación con Hmisc para Solar.R
+```{r warning=FALSE, message=FALSE}
+airquality.mis$Solar.R <- impute(airquality$Solar.R, mean) #Se usó el promedio
+airquality.mis$Solar.R
+```
+
+## Imputación por modelado con misc
+```{r warning=FALSE, message=FALSE, results='hide'}
+library(mice)
+airquality.mis2 = airquality
+
+imputed_Data <- mice(airquality.mis2, m=5, maxit = 10, method = 'pmm', seed = 123) 
+completeData <- mice::complete(imputed_Data,2) #Selecciona dataset2
+```
+```{r}
+completeData
+```
+
+Notar que en este caso se usó el algoritmo *pmm* (predictive mean matching).
+
+## Comparación entre ambos enfoques
+```{r}
+graph1 <- completeData %>% 
+  drop_na(Ozone) %>% 
+  ggplot(aes(x="", y=Ozone)) +
+  stat_boxplot(geom = "errorbar",
+               width = 0.2) +
+  geom_boxplot(fill="red", alpha = 0.3) +
+  geom_jitter() + 
+  labs(x = "") +
+  ggtitle("Concentración ozono") + 
+  theme_classic()
+
+graph2 <- completeData %>% 
+  drop_na(Solar.R) %>% 
+  ggplot(aes(x="", y=Solar.R)) +
+  stat_boxplot(geom = "errorbar",
+               width = 0.2) +
+  geom_boxplot(fill="red", alpha = 0.3) +
+  geom_jitter() + 
+  labs(x = "") +
+  ggtitle("Radiación solar") +
+  theme_classic()
+
+graph1+graph2
+```
+Podemos observar que para la variable Ozone, el algoritmo *pmm* produjo una gran cantidad de *outliers*. Por lo que en este caso es preferible usar la imputación simple que la imputación mediante el algoritmo *pmm*. 
+
+# Skewness o asimetría en la distribución de los datos
+```{r message=FALSE, warning=FALSE}
+library(e1071)
+skewness(completeData$Ozone)
+skewness(completeData$Solar.R)
+skewness(completeData$Wind)
+skewness(completeData$Temp)
+skewness(completeData$Month)
+skewness(completeData$Day)
+
+```
+La variable Ozone está muy sesgada, mientras que Solar.R, Wind y Temp están moderadamente sesgadas. Debido a esto, nos vamos a centrar en la variable Ozone.
+
+# Transformación de los datos 
+Después de realizar las transformaciones mediante los métodos log+1, raíz cuadrada y raiz cubida, se determinó que está ultima es la que mejor aproxima los datos a la normalidad. 
+
+```{r warning=FALSE, message=FALSE}
+
+Al_cuberoot <- sign(completeData$Ozone)* abs(completeData$Ozone)^(1/3)
+ggplot(completeData, aes(Al_cuberoot)) +geom_density()+
+  theme_bw()+ggtitle('Raíz Cúbica')
+
+
+shapiro.test(Al_cuberoot) #Para confirmar normalidad de los datos
+```
+No se rechazo H0, por lo que se asume normalidad. 
+
+# ¿Mejor predictor para estimar la variable Ozono?
+Se debe asumir que la variable que se use para estimar el ozono debe estar correlacionado con este. Por lo tanto, se realizó una matriz de correlación.  
+```{r warning=FALSE, message=FALSE}
+library(corrplot)
+corr<-round(cor(completeData), 2) #redondeamos a 1 decimal
+corrplot(corr, method="number", type="upper")
+```
+Con base en lo anterior, podemos asegurar que la variable Temp sería el mejor predictor de Ozone debido a que es la que tiene una mayor correlación. 
+
+
+```{r setup, include=FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
