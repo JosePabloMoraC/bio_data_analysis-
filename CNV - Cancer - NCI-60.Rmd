@@ -1,0 +1,366 @@
+---
+title: "CNV Plots : Cancer - NCI-60"
+author: "Pablo Mora"
+date: "2023"
+output:
+  rmdformats::robobook:
+    highlight: kate
+---
+
+```{r setup, include=FALSE, warning = FALSE, message = FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+# Paired T-test for each model
+
+```{r warning = FALSE}
+library(ggplot2)
+library(ggh4x)
+
+t_theme <-  theme(plot.title = element_text(size = 12, hjust = 0.5, vjust= 0),
+    axis.title.x = element_text(vjust = -0.6, size = 15, face = "bold"),
+    axis.title.y = element_text(vjust = + 2.5, size = 15, face = "bold"),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    # Hide panel borders and remove grid lines
+    # panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    # Remove panel background
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "black",
+                                fill = NA,
+                                size =0.2))
+```
+
+## SPI1
+
+```{r}
+# Load data
+t_spi1 <- read.csv("t_test_SPI1.csv", sep = ";")
+
+# Plot
+ggplot(t_spi1, aes(gen, p_value)) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept= 0.05, linetype="dashed", color = "red") + 
+  labs(title = "SPI1 t-test",
+       y = "p-Value",
+       x = "Species",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) +
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+ 
+```
+
+## KLF2
+
+```{r}
+t_klf2 <- read.csv("t_test_KLF2.csv", sep = ";")
+
+ggplot(t_klf2, aes(gen, p_value)) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept= 0.05, linetype="dashed", color = "red") + 
+  labs(title = "KLF2 t-test",
+       y = "p-Value",
+       x = "Species",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) +
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+## IL2
+
+```{r}
+t_il2 <- read.csv("t_test_IL2.csv", sep = ";")
+
+#plot
+ggplot(t_il2, aes(gen, p_value)) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept= 0.05, linetype="dashed", color = "red") + 
+  labs(title = "IL2 t-test",
+       y = "p-Value",
+       x = "Species",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) +
+  #scale_x_continuous(breaks = seq(0,6,1)) + 
+  #expand_limits(x = 0, y = 0) +
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+## IFNG
+
+```{r}
+t_ifng <- read.csv("t_test_IFNG.csv", sep = ";")
+
+#plot
+ggplot(t_ifng, aes(gen, p_value)) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept= 0.05, linetype="dashed", color = "red") + 
+  labs(title = "IFNG t-test",
+       y = "p-Value",
+       x = "Species",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) +
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+## TWIST1
+
+```{r}
+t_twist1 <- read.csv("t_test_TWIST1.csv", sep = ";")
+
+# plot
+ggplot(t_twist1, aes(gen, p_value)) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept= 0.05, linetype="dashed", color = "red") + 
+  labs(title = "TWIST1 t-test",
+       y = "p-Value",
+       x = "Species",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) +
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+# Parameter Scans
+
+## SPI1
+
+```{r}
+spi1 <- read.delim("parameter_scan_SPI1.txt")
+names(spi1) <- c("CNV", "SPI1", "MIR34A", "ZNF263", "SP1",
+                 "BCL6", "MIR342")
+
+# FOLD
+f_spi1 <- spi1
+f_spi1$SPI1 <- f_spi1$SPI1 / min(f_spi1$SPI1)
+
+# plot
+ggplot(f_spi1, aes(CNV, SPI1)) +
+  geom_line(lwd=1) +
+  labs(y = "SPI1 Expression (Fold)",
+       x = "SPI1 Copy Number",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 5), limits = c(1, 5)) +
+  scale_x_continuous(breaks = seq(0,6,1)) + 
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+## KLF2
+
+```{r}
+klf2 <- read.delim("parameter_scan_KLF2.txt")
+names(klf2) <- c("CNV", "MIR145", "HIF1A", "KLF2")
+
+# FOLD
+f_klf2 <- klf2
+f_klf2$KLF2 <- f_klf2$KLF2 / min(f_klf2$KLF2)
+
+# Plot
+ggplot(f_klf2, aes(CNV, KLF2)) +
+    geom_line(lwd=1) +
+    labs(y = "KLF2 Expression (Fold)",
+         x = "KLF2 Copy Number",
+         colour = "") +
+    scale_y_continuous(breaks = seq(0, 5), limits = c(1, 5)) +
+    scale_x_continuous(breaks = seq(0,6,1)) + 
+    force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+## IL2
+
+```{r}
+il2 <- read.delim("parameter_scan_IL2.txt")
+names(il2) <- c("CNV", "CREB", "RARG", "IL2")
+
+#FOLD
+f_il2 <- il2
+f_il2 $IL2 <- f_il2$IL2 / min(f_il2$IL2)
+
+#plot IFNG
+ggplot(f_il2, aes(CNV, IL2)) +
+  geom_line(lwd=1) +
+  labs(y = "IL2 Expression (Fold)",
+       x = "IL2 Copy Number",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 5), limits = c(1, 5)) +
+  scale_x_continuous(breaks = seq(0,6,1)) + 
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+## IFNG
+
+```{r}
+ifng <- read.delim("parameter_scan_IFNG.txt")
+names(ifng) <- c("CNV", "REL", "MIR145", "STAT1", "IFNG")
+
+# FOLD
+f_ifng <- ifng
+f_ifng $IFNG <- f_ifng$IFNG / min(f_ifng$IFNG)
+
+# plot
+ggplot(f_ifng, aes(CNV, IFNG)) +
+  geom_line(lwd=1) +
+  labs(y = "IFNG Expression (Fold)",
+       x = "IFNG Copy Number",
+       colour = "") +
+  scale_y_continuous(breaks = seq(0, 5), limits = c(1, 5)) +
+  scale_x_continuous(breaks = seq(0,6,1)) + 
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) + 
+  t_theme
+```
+
+## TWIST1
+
+```{r}
+twist1 <- read.delim("parameter_scan_TWIST1.txt")
+names(twist1) <- c("CNV", "MIR181A1", "MIR214", "TWIST1")
+
+# FOLD
+f_twist1 <- twist1
+f_twist1$TWIST1 <- f_twist1$TWIST1 / min(f_twist1$TWIST1)
+
+# Plot
+ggplot(f_twist1, aes(CNV, TWIST1)) +
+  geom_line(lwd=1) +
+  labs(y = "TWIST1 Expression (Fold)",
+       x = "TWIST1 Copy Number") +
+  scale_y_continuous(breaks = seq(0, 5), limits = c(1, 5)) +
+  scale_x_continuous(breaks = seq(0,6,1)) + 
+  force_panelsizes(rows = unit(6.69, "cm"),
+                   cols = unit(7.36, "cm")) +
+  t_theme
+```
+
+# *In-silico* experiments
+
+```{r}
+library(tidyr)
+
+experiments_theme <-
+        theme(axis.title.x = element_text(vjust = -0.6, size = 13),
+        legend.title = element_text(vjust = 2, hjust = 0.5, size = 13),
+        legend.text = element_text(size = 9,),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 11),
+        # Hide panel borders and remove grid lines
+        # panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        # Remove panel background
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        #
+        #axis.line = element_line(colour = "black", 
+        #                        size = 0.1, linetype = "solid")
+        #legend
+        legend.position='top', 
+        legend.key.height= unit(0.3, 'cm'),
+        legend.key.width= unit(1.82, 'cm')) +
+  guides(fill = guide_colourbar(title.position = "top", 
+                                frame.colour = "black",
+                                ticks.colour = "black"))
+```
+
+
+## KLF2
+```{r}
+klf2 <- read.delim("experiments_fold_KLF2.txt")
+names(klf2) <- c("Experiment", "1", "2", "3", "4", "5")
+
+l_klf2 <- pivot_longer(klf2, cols=2:6, 
+                         names_to = "CNV", values_to = "Expression")
+
+l_klf2$Experiment <- factor(l_klf2$Experiment,
+                            levels=c("MIR145 (-)", "HIF1A (-)", "Control"))
+
+l_klf2[10,3] = 5.01 # To show the 5 in the expression bar
+
+l_klf2 |>
+  ggplot(aes(CNV, Experiment, fill= Expression)) + 
+  geom_tile() +
+  labs(y = "",
+       x = "KLF2 Copy Number", 
+       fill = "KLF2 Expression (Fold Change)") +
+  # remove extra space
+  scale_y_discrete(expand=c(0, 0), position = "left")+
+  # define new breaks on x-axis
+  scale_x_discrete(expand=c(0, 0)) +
+  scale_fill_gradientn(colors = c("#00a5d1", "#81d0e5", "#cce8f4",
+                                  "#ffb18f", "#ff6d56",
+                                  "#e3002b", "#900024")) +
+  theme(axis.title.x = element_text(vjust = -0.6, size = 13),
+        legend.title = element_text(vjust = 2, hjust = 0.5, size = 13),
+        legend.text = element_text(size = 9,),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 11),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position='top', 
+        legend.key.height= unit(0.3, 'cm'),
+        legend.key.width= unit(1.82, 'cm')) +
+  guides(fill = guide_colourbar(title.position = "top", 
+                                frame.colour = "black",
+                                ticks.colour = "black"))
+
+  
+```
+
+## TWIST1
+```{r}
+twist1 <- read.delim("experiments_fold_TWIST1.txt")
+names(twist1) <- c("Experiment", "1", "2", "3", "4", "5")
+
+l_twist1 <- pivot_longer(twist1, cols=2:6, 
+                         names_to = "CNV", values_to = "Expression")
+
+l_twist1$Experiment <- factor(l_twist1$Experiment, levels=c("MIR181A1 (-)", "MIR214 (-)", "Control "))
+
+# Plot
+l_twist1 |>
+  ggplot(aes(CNV, Experiment, fill= Expression)) + 
+  geom_tile() +
+  labs(y = "",
+       x = "TWIST1 Copy Number", 
+       fill = "TWIST1 Expression (Fold Change)") +
+  scale_y_discrete(expand=c(0, 0), position = "left")+
+  scale_x_discrete(expand=c(0, 0)) +
+  scale_fill_gradientn(colors = c("#00a5d1", "#81d0e5", "#cce8f4",
+                                  "#ffb18f", "#ff6d56",
+                                  "#e3002b", "#900024")) +
+  theme(axis.title.x = element_text(vjust = -0.6, size = 13),
+        legend.title = element_text(vjust = 2, hjust = 0.5, size = 13),
+        legend.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 11),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position='top', 
+        legend.key.height= unit(0.3, 'cm'),
+        legend.key.width= unit(1.72, 'cm')) +
+  guides(fill = guide_colourbar(title.position = "top", 
+                                frame.colour = "black",
+                                ticks.colour = "black"))
+```
+
